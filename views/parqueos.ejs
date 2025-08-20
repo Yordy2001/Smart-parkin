@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/public/styles.css">
+    <title>Parqueos Disponibles</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <header class="main-header">
+        <h1>🚗 Parqueo Inteligente</h1>
+        <nav>
+            <a href="/" class="nav-link">Dashboard</a>
+            <a href="/parqueos" class="nav-link active">Espacios</a>
+            <a href="/camaras" class="nav-link">Cámaras</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="parqueos-section-header">
+            <h2>Espacios de Parqueo</h2>
+            <div class="parking-summary">
+                <span class="available-count" id="availableCount">
+                    <%= slots.filter(s => !s.occupied).length %>
+                </span> de <%= totalSlots %> espacios disponibles
+            </div>
+        </section>
+
+        <section class="parqueos-section" id="parkingSlots">
+            <% slots.forEach(slot => { %>
+                <div class="parking-space <%= slot.occupied ? 'occupied' : 'available' %>" 
+                     data-slot="<%= slot.id %>">
+                    <div class="space-number">
+                        Espacio <%= slot.id %>
+                    </div>
+                    <div class="space-status">
+                        <%= slot.occupied ? '🚗 Ocupado' : '🟢 Libre' %>
+                    </div>
+                    <% if (slot.updatedAt) { %>
+                        <div class="space-time">
+                            Actualizado: <%= new Date(slot.updatedAt).toLocaleTimeString() %>
+                        </div>
+                    <% } %>
+                </div>
+            <% }) %>
+        </section>
+
+        <section class="legend">
+            <h3>Leyenda</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-color available"></div>
+                    <span>Espacio disponible</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color occupied"></div>
+                    <span>Espacio ocupado</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Actualizar estado de espacios cada 3 segundos
+        setInterval(async () => {
+            try {
+                const response = await axios.get('/api/status');
+                const data = response.data;
+                
+                // Actualizar contador
+                document.getElementById('availableCount').textContent = data.availableSlots;
+                
+                // Actualizar cada espacio
+                data.slots.forEach(slot => {
+                    const slotElement = document.querySelector(`[data-slot="${slot.id}"]`);
+                    if (slotElement) {
+                        slotElement.className = `parking-space ${slot.occupied ? 'occupied' : 'available'}`;
+                        
+                        const statusElement = slotElement.querySelector('.space-status');
+                        statusElement.textContent = slot.occupied ? '🚗 Ocupado' : '🟢 Libre';
+                        
+                        const timeElement = slotElement.querySelector('.space-time');
+                        if (slot.updatedAt && timeElement) {
+                            timeElement.textContent = `Actualizado: ${new Date(slot.updatedAt).toLocaleTimeString()}`;
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Error actualizando espacios:', error);
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

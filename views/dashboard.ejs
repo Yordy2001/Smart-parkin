@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/public/styles.css">
+    <title>Parqueo Inteligente - Dashboard</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <header class="main-header">
+        <h1>🚗 Parqueo Inteligente</h1>
+        <nav>
+            <a href="/" class="nav-link active">Dashboard</a>
+            <a href="/parqueos" class="nav-link">Espacios</a>
+            <a href="/camaras" class="nav-link">Cámaras</a>
+        </nav>
+    </header>
+
+    <main class="dashboard">
+        <!-- Estadísticas principales -->
+        <section class="stats-section">
+            <div class="stat-card">
+                <h3>Entradas</h3>
+                <div class="stat-number" id="entryCount"><%= parkingState.entryCount %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Salidas</h3>
+                <div class="stat-number" id="exitCount"><%= parkingState.exitCount %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Vehículos Dentro</h3>
+                <div class="stat-number" id="vehiclesInside"><%= vehiclesInside %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Espacios Libres</h3>
+                <div class="stat-number available" id="availableSlots"><%= availableSlots %></div>
+            </div>
+        </section>
+
+        <!-- Mapa de espacios -->
+        <section class="parking-map">
+            <h2>Mapa del Parqueo</h2>
+            <div class="parking-grid">
+                <% parkingState.slots.forEach(slot => { %>
+                    <div class="parking-slot <%= slot.occupied ? 'occupied' : 'free' %>" 
+                         data-slot="<%= slot.id %>">
+                        <div class="slot-number"><%= slot.id %></div>
+                        <div class="slot-status">
+                            <%= slot.occupied ? '🚗' : '🟢' %>
+                        </div>
+                        <% if (slot.updatedAt) { %>
+                            <div class="slot-time">
+                                <%= new Date(slot.updatedAt).toLocaleTimeString() %>
+                            </div>
+                        <% } %>
+                    </div>
+                <% }) %>
+            </div>
+        </section>
+
+        <!-- Últimas cámaras -->
+        <section class="cameras-preview">
+            <h2>Cámaras de Seguridad</h2>
+            <div class="cameras-grid">
+                <% if (cameraIds.length === 0) { %>
+                    <p class="no-data">No hay imágenes de cámaras disponibles</p>
+                <% } else { %>
+                    <% cameraIds.slice(0, 4).forEach(camId => { 
+                        const images = parkingState.cameras[camId];
+                        const lastImage = images[images.length - 1];
+                    %>
+                        <div class="camera-preview">
+                            <h4>Cámara <%= camId %></h4>
+                            <% if (lastImage) { %>
+                                <img src="<%= lastImage.url %>" alt="Cámara <%= camId %>" 
+                                     onclick="window.open('<%= lastImage.url %>', '_blank')">
+                                <div class="image-time">
+                                    <%= new Date(lastImage.timestamp).toLocaleString() %>
+                                </div>
+                            <% } else { %>
+                                <div class="no-image">Sin imagen</div>
+                            <% } %>
+                        </div>
+                    <% }) %>
+                <% } %>
+            </div>
+            <a href="/camaras" class="view-all-btn">Ver todas las cámaras →</a>
+        </section>
+
+        <!-- Eventos recientes -->
+        <section class="recent-events">
+            <h2>Eventos Recientes</h2>
+            <div class="events-list" id="eventsList">
+                <% parkingState.events.slice(0, 10).forEach(event => { %>
+                    <div class="event-item">
+                        <div class="event-type event-<%= event.type.toLowerCase() %>">
+                            <% if (event.type === 'ENTRY') { %>🚗➡️
+                            <% } else if (event.type === 'EXIT') { %>🚗⬅️
+                            <% } else if (event.type === 'SLOT_UPDATE') { %>🅿️
+                            <% } else if (event.type === 'CAMERA_IMAGE') { %>📸
+                            <% } %>
+                        </div>
+                        <div class="event-details">
+                            <div class="event-description">
+                                <% if (event.type === 'ENTRY') { %>
+                                    Vehículo ingresó al parqueo
+                                <% } else if (event.type === 'EXIT') { %>
+                                    Vehículo salió del parqueo
+                                <% } else if (event.type === 'SLOT_UPDATE') { %>
+                                    Espacio <%= event.data.slotId %> <%= event.data.occupied ? 'ocupado' : 'liberado' %>
+                                <% } else if (event.type === 'CAMERA_IMAGE') { %>
+                                    Nueva imagen de cámara <%= event.data.camId %>
+                                <% } %>
+                            </div>
+                            <div class="event-time">
+                                <%= new Date(event.timestamp).toLocaleString() %>
+                            </div>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Actualizar datos cada 5 segundos
+        setInterval(async () => {
+            try {
+                const response = await axios.get('/api/status');
+                const data = response.data;
+                
+                // Actualizar estadísticas
+                document.getElementById('entryCount').textContent = data.entryCount;
+                document.getElementById('exitCount').textContent = data.exitCount;
+                document.getElementById('vehiclesInside').textContent = data.vehiclesInside;
+                document.getElementById('availableSlots').textContent = data.availableSlots;
+                
+                // Actualizar espacios de parqueo
+                data.slots.forEach(slot => {
+                    const slotElement = document.querySelector(`[data-slot="${slot.id}"]`);
+                    if (slotElement) {
+                        slotElement.className = `parking-slot ${slot.occupied ? 'occupied' : 'free'}`;
+                        const statusElement = slotElement.querySelector('.slot-status');
+                        statusElement.textContent = slot.occupied ? '🚗' : '🟢';
+                    }
+                });
+                
+                console.log('Dashboard actualizado');
+            } catch (error) {
+                console.error('Error actualizando dashboard:', error);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

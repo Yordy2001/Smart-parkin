@@ -1,0 +1,581 @@
+/* Reset y base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f7fa;
+    color: #333;
+    line-height: 1.6;
+}
+
+/* Header principal */
+.main-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.main-header h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.main-header nav {
+    display: flex;
+    gap: 1rem;
+}
+
+.nav-link {
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.nav-link:hover, .nav-link.active {
+    background-color: rgba(255,255,255,0.2);
+    color: white;
+}
+
+/* Dashboard */
+.dashboard {
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Estadísticas */
+.stats-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.stat-card h3 {
+    color: #666;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.stat-number.available {
+    color: #10b981;
+}
+
+/* Mapa de parqueo */
+.parking-map {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.parking-map h2 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.parking-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    max-width: 600px;
+}
+
+.parking-slot {
+    aspect-ratio: 1;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.parking-slot.free {
+    background-color: #ecfdf5;
+    border-color: #10b981;
+}
+
+.parking-slot.occupied {
+    background-color: #fef2f2;
+    border-color: #ef4444;
+}
+
+.slot-number {
+    font-weight: bold;
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+}
+
+.slot-status {
+    font-size: 1.2rem;
+    margin-bottom: 0.2rem;
+}
+
+.slot-time {
+    font-size: 0.6rem;
+    color: #666;
+}
+
+/* Página de parqueos */
+.parqueos-section-header {
+    padding: 2rem;
+    text-align: center;
+    background: white;
+    margin: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.parqueos-section-header h2 {
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.parking-summary {
+    font-size: 1.2rem;
+    color: #666;
+}
+
+.available-count {
+    color: #10b981;
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+.parqueos-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    padding: 0 2rem 2rem;
+}
+
+.parking-space {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: all 0.3s ease;
+    border-left: 5px solid #ddd;
+}
+
+.parking-space.available {
+    border-left-color: #10b981;
+}
+
+.parking-space.occupied {
+    border-left-color: #ef4444;
+}
+
+.space-number {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.space-status {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.space-time {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* Leyenda */
+.legend {
+    padding: 1rem 2rem;
+    background: white;
+    margin: 0 2rem 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.legend h3 {
+    margin-bottom: 1rem;
+}
+
+.legend-items {
+    display: flex;
+    gap: 2rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+}
+
+.legend-color.available {
+    background-color: #10b981;
+}
+
+.legend-color.occupied {
+    background-color: #ef4444;
+}
+
+/* Cámaras */
+.cameras-preview {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+}
+
+.cameras-preview h2 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.cameras-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.camera-preview {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.camera-preview h4 {
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.camera-preview img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.camera-preview img:hover {
+    transform: scale(1.05);
+}
+
+.no-image {
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+    color: #666;
+}
+
+.image-time {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.5rem;
+}
+
+.view-all-btn {
+    display: inline-block;
+    background-color: #667eea;
+    color: white;
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.view-all-btn:hover {
+    background-color: #5a6fd8;
+}
+
+/* Página completa de cámaras */
+.cameras-header {
+    text-align: center;
+    padding: 2rem;
+    background: white;
+    margin: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.cameras-full-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    padding: 0 2rem 2rem;
+}
+
+.camera-full {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.camera-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #ddd;
+}
+
+.image-count {
+    background-color: #667eea;
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+}
+
+.camera-current img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.camera-current img:hover {
+    transform: scale(1.02);
+}
+
+.image-info {
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+.image-time, .image-size {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 0.2rem;
+}
+
+.camera-history {
+    padding: 1rem;
+}
+
+.camera-history h4 {
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.history-thumbnails {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+}
+
+.thumbnail {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+}
+
+.thumbnail:hover {
+    transform: scale(1.1);
+}
+
+.camera-no-image {
+    padding: 3rem;
+    text-align: center;
+    color: #666;
+}
+
+.no-image-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+/* Modal para imágenes */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    position: relative;
+    max-width: 90%;
+    max-height: 90%;
+}
+
+.modal-content img {
+    width: 100%;
+    height: auto;
+    border-radius: 5px;
+}
+
+.modal-close {
+    position: absolute;
+    top: -40px;
+    right: 0;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+}
+
+#modalTitle {
+    color: white;
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 1.2rem;
+}
+
+/* Eventos recientes */
+.recent-events {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.recent-events h2 {
+    margin-bottom: 1rem;
+    color: #333;
+}
+
+.events-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.event-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.3s ease;
+}
+
+.event-item:hover {
+    background-color: #f8f9fa;
+}
+
+.event-type {
+    font-size: 1.5rem;
+    margin-right: 1rem;
+    width: 40px;
+    text-align: center;
+}
+
+.event-details {
+    flex: 1;
+}
+
+.event-description {
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+}
+
+.event-time {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.no-data {
+    text-align: center;
+    color: #666;
+    padding: 2rem;
+    font-style: italic;
+}
+
+.no-cameras {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 3rem;
+    color: #666;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .main-header {
+        padding: 1rem;
+    }
+    
+    .main-header nav {
+        flex-wrap: wrap;
+    }
+    
+    .dashboard {
+        padding: 1rem;
+    }
+    
+    .stats-section {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .parking-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .parqueos-section {
+        grid-template-columns: 1fr;
+        padding: 0 1rem 1rem;
+    }
+    
+    .cameras-full-grid {
+        grid-template-columns: 1fr;
+        padding: 0 1rem 1rem;
+    }
+    
+    .legend-items {
+        flex-direction: column;
+        gap: 1rem;
+    }
+}

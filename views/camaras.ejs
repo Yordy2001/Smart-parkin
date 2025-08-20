@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/public/styles.css">
+    <title>Cámaras de Seguridad</title>
+</head>
+<body>
+    <header class="main-header">
+        <h1>🚗 Parqueo Inteligente</h1>
+        <nav>
+            <a href="/" class="nav-link">Dashboard</a>
+            <a href="/parqueos" class="nav-link">Espacios</a>
+            <a href="/camaras" class="nav-link active">Cámaras</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="cameras-header">
+            <h2>📸 Cámaras de Seguridad ESP32-CAM</h2>
+            <p>Monitoreo en tiempo real del parqueo</p>
+        </section>
+
+        <section class="cameras-full-grid">
+            <% if (cameraIds.length === 0) { %>
+                <div class="no-cameras">
+                    <h3>No hay cámaras activas</h3>
+                    <p>Las cámaras aparecerán aquí cuando envíen su primera imagen</p>
+                </div>
+            <% } else { %>
+                <% cameraIds.forEach(camId => { 
+                    const images = cameras[camId] || [];
+                    const lastImage = images[images.length - 1];
+                %>
+                    <div class="camera-full">
+                        <div class="camera-header">
+                            <h3>Cámara <%= camId %></h3>
+                            <span class="image-count"><%= images.length %> imágenes</span>
+                        </div>
+                        
+                        <% if (lastImage) { %>
+                            <div class="camera-current">
+                                <img src="<%= lastImage.url %>" alt="Cámara <%= camId %>" 
+                                     onclick="openImageModal('<%= lastImage.url %>', 'Cámara <%= camId %>')">
+                                <div class="image-info">
+                                    <div class="image-time">
+                                        📅 <%= new Date(lastImage.timestamp).toLocaleString() %>
+                                    </div>
+                                    <div class="image-size">
+                                        📏 <%= Math.round(lastImage.size / 1024) %> KB
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Últimas 5 imágenes -->
+                            <% if (images.length > 1) { %>
+                                <div class="camera-history">
+                                    <h4>Imágenes recientes</h4>
+                                    <div class="history-thumbnails">
+                                        <% images.slice(-6, -1).reverse().forEach(img => { %>
+                                            <img src="<%= img.url %>" alt="Histórico" class="thumbnail"
+                                                 onclick="openImageModal('<%= img.url %>', 'Cámara <%= camId %>')">
+                                        <% }) %>
+                                    </div>
+                                </div>
+                            <% } %>
+                        <% } else { %>
+                            <div class="camera-no-image">
+                                <div class="no-image-icon">📷</div>
+                                <p>Sin imágenes</p>
+                                <small>Esta cámara aún no ha enviado ninguna imagen</small>
+                            </div>
+                        <% } %>
+                    </div>
+                <% }) %>
+            <% } %>
+        </section>
+    </main>
+
+    <!-- Modal para ver imágenes en grande -->
+    <div id="imageModal" class="modal" onclick="closeImageModal()">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <img id="modalImage" src="" alt="">
+            <div id="modalTitle"></div>
+        </div>
+    </div>
+
+    <script>
+        function openImageModal(imageUrl, title) {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            const modalTitle = document.getElementById('modalTitle');
+            
+            modal.style.display = 'flex';
+            modalImg.src = imageUrl;
+            modalTitle.textContent = title;
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
+        }
+
+        // Cerrar modal con ESC
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeImageModal();
+            }
+        });
+
+        // Actualizar página cada 30 segundos para nuevas imágenes
+        setTimeout(() => {
+            location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>
