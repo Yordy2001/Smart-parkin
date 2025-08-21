@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/public/styles.css">
     <title>Parqueos Disponibles</title>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
     <header class="main-header">
@@ -62,35 +62,75 @@
     </main>
 
     <script>
-        // Actualizar estado de espacios cada 3 segundos
-        setInterval(async () => {
-            try {
-                const response = await axios.get('/api/status');
-                const data = response.data;
+        const socket = io();
+        
+        // Conectar y recibir estado inicial
+        socket.on('initialState', (data) => {
+            console.log('📡 Estado inicial recibido:', data);
+            updateParkingSpaces(data);
+        });
+        
+        // Escuchar actualizaciones de espacios en tiempo real
+        socket.on('slotUpdate', (data) => {
+            console.log(`🅿️ Actualización en tiempo real - Espacio ${data.slotId}: ${data.occupied ? 'OCUPADO' : 'LIBRE'}`);
+            
+            const slotElement = document.querySelector(`[data-slot="${data.slotId}"]`);
+            if (slotElement) {
+                slotElement.className = `parking-space ${data.occupied ? 'occupied' : 'available'}`;
                 
-                // Actualizar contador
-                document.getElementById('availableCount').textContent = data.availableSlots;
+                const statusElement = slotElement.querySelector('.space-status');
+                statusElement.textContent = data.occupied ? '🚗 Ocupado' : '🟢 Libre';
                 
-                // Actualizar cada espacio
-                data.slots.forEach(slot => {
-                    const slotElement = document.querySelector(`[data-slot="${slot.id}"]`);
-                    if (slotElement) {
-                        slotElement.className = `parking-space ${slot.occupied ? 'occupied' : 'available'}`;
-                        
-                        const statusElement = slotElement.querySelector('.space-status');
-                        statusElement.textContent = slot.occupied ? '🚗 Ocupado' : '🟢 Libre';
-                        
-                        const timeElement = slotElement.querySelector('.space-time');
-                        if (slot.updatedAt && timeElement) {
-                            timeElement.textContent = `Actualizado: ${new Date(slot.updatedAt).toLocaleTimeString()}`;
-                        }
-                    }
-                });
+                const timeElement = slotElement.querySelector('.space-time');
+                if (timeElement) {
+                    timeElement.textContent = `Actualizado: ${new Date(data.timestamp).toLocaleTimeString()}`;
+                }
                 
-            } catch (error) {
-                console.error('Error actualizando espacios:', error);
+                // Efecto visual para mostrar el cambio
+                slotElement.style.boxShadow = '0 0 20px #4CAF50';
+                setTimeout(() => {
+                    slotElement.style.boxShadow = '';
+                }, 1000);
             }
-        }, 3000);
+        });
+        
+        // Escuchar estadísticas actualizadas
+        socket.on('parkingStats', (data) => {
+            console.log('📊 Estadísticas actualizadas:', data);
+            document.getElementById('availableCount').textContent = data.availableSlots;
+        });
+        
+        function updateParkingSpaces(data) {
+            // Actualizar contador
+            document.getElementById('availableCount').textContent = data.availableSlots;
+            
+            // Actualizar cada espacio
+            data.slots.forEach(slot => {
+                const slotElement = document.querySelector(`[data-slot="${slot.id}"]`);
+                if (slotElement) {
+                    slotElement.className = `parking-space ${slot.occupied ? 'occupied' : 'available'}`;
+                    
+                    const statusElement = slotElement.querySelector('.space-status');
+                    statusElement.textContent = slot.occupied ? '🚗 Ocupado' : '🟢 Libre';
+                    
+                    const timeElement = slotElement.querySelector('.space-time');
+                    if (slot.updatedAt && timeElement) {
+                        timeElement.textContent = `Actualizado: ${new Date(slot.updatedAt).toLocaleTimeString()}`;
+                    }
+                }
+            });
+        }
+        
+        // Indicador de conexión
+        socket.on('connect', () => {
+            console.log('🔌 Conectado al servidor en tiempo real');
+            document.body.style.borderTop = '3px solid #4CAF50';
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('🔌 Desconectado del servidor');
+            document.body.style.borderTop = '3px solid #f44336';
+        });
     </script>
 </body>
 </html>

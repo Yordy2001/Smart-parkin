@@ -3,6 +3,8 @@ const morgan = require('morgan');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const PORT = process.env.PORT || 3000;
 const SLOTS_COUNT = 10; // 10 espacios de parqueo
@@ -10,6 +12,8 @@ const CAMERAS_COUNT = 5; // 5 ESP32-CAM
 const MAX_IMAGES_PER_CAM = 20; // Máximo de imágenes por cámara
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
 // Configuración de EJS
 app.set('view engine', 'ejs');
@@ -192,15 +196,27 @@ app.post('/api/gate', (req, res) => {
 // Endpoint para actualizar estado de espacios de parqueo
 app.post('/api/slot/:id', (req, res) => {
     const slotId = parseInt(req.params.id);
-    const { occupied } = req.body;
+    let { occupied } = req.body;
+    occupied = !occupied
+    const clientIP = req.ip || req.connection.remoteAddress;
+    const timestamp = new Date().toISOString();
+    
+    console.log(`\n🔍 [${timestamp}] SOLICITUD RECIBIDA:`);
+    console.log(`   📍 Espacio: ${slotId}`);
+    console.log(`   📊 Estado solicitado: ${occupied ? 'OCUPADO' : 'LIBRE'}`);
+    console.log(occupied);
+    console.log(`   🌐 IP Cliente: ${clientIP}`);
+    console.log(`   📦 Body completo:`, req.body);
     
     if (slotId < 1 || slotId > SLOTS_COUNT) {
+        console.log(`❌ Error: ID de espacio inválido (${slotId})`);
         return res.status(400).json({ 
             error: `ID de espacio debe estar entre 1 y ${SLOTS_COUNT}` 
         });
     }
     
     if (typeof occupied !== 'boolean') {
+        console.log(`❌ Error: Tipo de dato inválido para 'occupied' (${typeof occupied}):`, occupied);
         return res.status(400).json({ 
             error: 'El campo occupied debe ser true o false' 
         });
@@ -209,13 +225,39 @@ app.post('/api/slot/:id', (req, res) => {
     const slot = parkingState.slots.find(s => s.id === slotId);
     const wasOccupied = slot.occupied;
     
+    console.log(`📋 Estado anterior: ${wasOccupied ? 'OCUPADO' : 'LIBRE'}`);
+    console.log(`📋 Estado nuevo: ${occupied ? 'OCUPADO' : 'LIBRE'}`);
+    
     slot.occupied = occupied;
-    slot.updatedAt = new Date().toISOString();
+    slot.updatedAt = timestamp;
     
     // Solo agregar evento si cambió el estado
     if (wasOccupied !== occupied) {
         addEvent('SLOT_UPDATE', { slotId, occupied, previousState: wasOccupied });
-        console.log(`🅿️ Espacio ${slotId} ${occupied ? 'ocupado' : 'liberado'}`);
+        console.log(`✅ 🅿️ CAMBIO CONFIRMADO - Espacio ${slotId} ${occupied ? 'ocupado' : 'liberado'}`);
+        
+        // Emitir evento de Socket.IO para actualización en tiempo real
+        io.emit('slotUpdate', {
+            slotId,
+            occupied,
+            wasOccupied,
+            timestamp,
+            clientIP
+        });
+        
+        // Calcular y emitir estadísticas actualizadas
+        const occupiedSlots = parkingState.slots.filter(s => s.occupied).length;
+        const availableSlots = SLOTS_COUNT - occupiedSlots;
+        
+        io.emit('parkingStats', {
+            occupiedSlots,
+            availableSlots,
+            totalSlots: SLOTS_COUNT,
+            slots: parkingState.slots
+        });
+        
+    } else {
+        console.log(`ℹ️  Sin cambios - Espacio ${slotId} mantiene estado: ${occupied ? 'OCUPADO' : 'LIBRE'}`);
     }
     
     res.json({
@@ -223,7 +265,9 @@ app.post('/api/slot/:id', (req, res) => {
         slot: {
             id: slotId,
             occupied,
-            updatedAt: slot.updatedAt
+            wasOccupied,
+            updatedAt: slot.updatedAt,
+            changed: wasOccupied !== occupied
         }
     });
 });
@@ -302,8 +346,32 @@ app.use((error, req, res, next) => {
     });
 });
 
+// Socket.IO para actualizaciones en tiempo real
+io.on('connection', (socket) => {
+    console.log('🔌 Cliente conectado para actualizaciones en tiempo real');
+    
+    // Enviar estado actual al cliente recién conectado
+    const occupiedSlots = parkingState.slots.filter(s => s.occupied).length;
+    const availableSlots = SLOTS_COUNT - occupiedSlots;
+    const vehiclesInside = parkingState.entryCount - parkingState.exitCount;
+    
+    socket.emit('initialState', {
+        slots: parkingState.slots,
+        entryCount: parkingState.entryCount,
+        exitCount: parkingState.exitCount,
+        vehiclesInside,
+        occupiedSlots,
+        availableSlots,
+        totalSlots: SLOTS_COUNT
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('🔌 Cliente desconectado');
+    });
+});
+
 // Iniciar servidor
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`🚀 Servidor de Parqueo Inteligente ejecutándose en http://localhost:${PORT}`);
     console.log(`📊 Configuración:`);
     console.log(`   - Espacios de parqueo: ${SLOTS_COUNT}`);
@@ -314,4 +382,5 @@ app.listen(PORT, () => {
     console.log(`   POST /api/slot/:id - Estado de espacios`);
     console.log(`   POST /api/camera/:camId/upload - Subir imágenes`);
     console.log(`   GET /api/status - Estado completo del parqueo`);
+    console.log(`\n🔌 Socket.IO habilitado para actualizaciones en tiempo real`);
 });

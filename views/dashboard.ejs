@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/public/styles.css">
     <title>Parqueo Inteligente - Dashboard</title>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
     <header class="main-header">
@@ -124,33 +124,82 @@
     </main>
 
     <script>
-        // Actualizar datos cada 5 segundos
-        setInterval(async () => {
-            try {
-                const response = await axios.get('/api/status');
-                const data = response.data;
+        const socket = io();
+        
+        // Conectar y recibir estado inicial
+        socket.on('initialState', (data) => {
+            console.log('📡 Estado inicial recibido:', data);
+            updateDashboard(data);
+        });
+        
+        // Escuchar actualizaciones de espacios en tiempo real
+        socket.on('slotUpdate', (data) => {
+            console.log(`🅿️ Actualización de espacio ${data.slotId}: ${data.occupied ? 'OCUPADO' : 'LIBRE'}`);
+            
+            const slotElement = document.querySelector(`[data-slot="${data.slotId}"]`);
+            if (slotElement) {
+                slotElement.className = `parking-slot ${data.occupied ? 'occupied' : 'free'}`;
                 
-                // Actualizar estadísticas
-                document.getElementById('entryCount').textContent = data.entryCount;
-                document.getElementById('exitCount').textContent = data.exitCount;
-                document.getElementById('vehiclesInside').textContent = data.vehiclesInside;
-                document.getElementById('availableSlots').textContent = data.availableSlots;
+                const statusElement = slotElement.querySelector('.slot-status');
+                statusElement.textContent = data.occupied ? '🚗' : '🟢';
                 
-                // Actualizar espacios de parqueo
-                data.slots.forEach(slot => {
-                    const slotElement = document.querySelector(`[data-slot="${slot.id}"]`);
-                    if (slotElement) {
-                        slotElement.className = `parking-slot ${slot.occupied ? 'occupied' : 'free'}`;
-                        const statusElement = slotElement.querySelector('.slot-status');
-                        statusElement.textContent = slot.occupied ? '🚗' : '🟢';
-                    }
-                });
+                const timeElement = slotElement.querySelector('.slot-time');
+                if (timeElement) {
+                    timeElement.textContent = new Date(data.timestamp).toLocaleTimeString();
+                }
                 
-                console.log('Dashboard actualizado');
-            } catch (error) {
-                console.error('Error actualizando dashboard:', error);
+                // Efecto visual para mostrar el cambio
+                slotElement.style.transform = 'scale(1.05)';
+                slotElement.style.transition = 'transform 0.3s ease';
+                setTimeout(() => {
+                    slotElement.style.transform = 'scale(1)';
+                }, 300);
             }
-        }, 5000);
+        });
+        
+        // Escuchar estadísticas actualizadas
+        socket.on('parkingStats', (data) => {
+            console.log('📊 Estadísticas actualizadas:', data);
+            document.getElementById('availableSlots').textContent = data.availableSlots;
+            
+            // Actualizar contador en la página de espacios si existe
+            const availableCount = document.getElementById('availableCount');
+            if (availableCount) {
+                availableCount.textContent = data.availableSlots;
+            }
+        });
+        
+        function updateDashboard(data) {
+            // Actualizar estadísticas
+            document.getElementById('entryCount').textContent = data.entryCount;
+            document.getElementById('exitCount').textContent = data.exitCount;
+            document.getElementById('vehiclesInside').textContent = data.vehiclesInside;
+            document.getElementById('availableSlots').textContent = data.availableSlots;
+            
+            // Actualizar espacios de parqueo
+            data.slots.forEach(slot => {
+                const slotElement = document.querySelector(`[data-slot="${slot.id}"]`);
+                if (slotElement) {
+                    slotElement.className = `parking-slot ${slot.occupied ? 'occupied' : 'free'}`;
+                    const statusElement = slotElement.querySelector('.slot-status');
+                    statusElement.textContent = slot.occupied ? '🚗' : '🟢';
+                    
+                    const timeElement = slotElement.querySelector('.slot-time');
+                    if (slot.updatedAt && timeElement) {
+                        timeElement.textContent = new Date(slot.updatedAt).toLocaleTimeString();
+                    }
+                }
+            });
+        }
+        
+        // Indicador de conexión
+        socket.on('connect', () => {
+            console.log('🔌 Conectado al servidor en tiempo real');
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('🔌 Desconectado del servidor');
+        });
     </script>
 </body>
 </html>

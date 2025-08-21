@@ -5,6 +5,74 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/public/styles.css">
     <title>Cámaras de Seguridad</title>
+    <style>
+        .camera-stream {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .live-stream {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        .stream-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .motion-indicator {
+            background: rgba(255, 165, 0, 0.8);
+        }
+        
+        .camera-type-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        
+        .camera-offline {
+            background: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff6b35;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+    </style>
 </head>
 <body>
     <header class="main-header">
@@ -19,30 +87,56 @@
     <main>
         <section class="cameras-header">
             <h2>📸 Cámaras de Seguridad ESP32-CAM</h2>
-            <p>Monitoreo en tiempo real del parqueo</p>
+            <p>Monitoreo híbrido: Streaming continuo + Detección de movimiento</p>
         </section>
 
         <section class="cameras-full-grid">
-            <% if (cameraIds.length === 0) { %>
-                <div class="no-cameras">
-                    <h3>No hay cámaras activas</h3>
-                    <p>Las cámaras aparecerán aquí cuando envíen su primera imagen</p>
-                </div>
-            <% } else { %>
-                <% cameraIds.forEach(camId => { 
-                    const images = cameras[camId] || [];
-                    const lastImage = images[images.length - 1];
-                %>
-                    <div class="camera-full">
-                        <div class="camera-header">
-                            <h3>Cámara <%= camId %></h3>
-                            <span class="image-count"><%= images.length %> imágenes</span>
+            <% cameraIds.forEach(camId => { 
+                const config = cameraConfig[camId];
+                const images = cameras[camId] || [];
+                const lastImage = images[images.length - 1];
+                const streamStatus = streamingCameras[camId];
+            %>
+                <div class="camera-full" data-camera-id="<%= camId %>">
+                    <div class="camera-header">
+                        <h3><%= config.name %></h3>
+                        <span class="camera-type">
+                            <%= config.type === 'stream' ? '🔴 STREAMING' : '🔍 DETECCIÓN' %>
+                        </span>
+                    </div>
+                    
+                    <% if (config.type === 'stream') { %>
+                        <!-- Cámara de streaming continuo -->
+                        <div class="camera-stream">
+                            <img src="/api/camera/<%= camId %>/stream" 
+                                 alt="Stream Cámara <%= camId %>" 
+                                 class="live-stream"
+                                 onload="markCameraOnline('<%= camId %>')"
+                                 onerror="markCameraOffline('<%= camId %>')">
+                            <div class="stream-indicator">🔴 EN VIVO</div>
+                            <div class="camera-type-badge">STREAMING</div>
                         </div>
                         
+                        <!-- Fallback si el stream no está disponible -->
+                        <div id="offline-<%= camId %>" class="camera-offline" style="display: none;">
+                            <div>
+                                <div style="font-size: 48px; margin-bottom: 10px;">📷</div>
+                                <p><strong>Cámara Offline</strong></p>
+                                <small>IP: <%= config.ip %></small><br>
+                                <small>Verificar conexión del ESP32-CAM</small>
+                            </div>
+                        </div>
+                        
+                    <% } else { %>
+                        <!-- Cámara de detección de movimiento -->
                         <% if (lastImage) { %>
                             <div class="camera-current">
-                                <img src="<%= lastImage.url %>" alt="Cámara <%= camId %>" 
-                                     onclick="openImageModal('<%= lastImage.url %>', 'Cámara <%= camId %>')">
+                                <div class="camera-stream">
+                                    <img src="<%= lastImage.url %>" alt="Cámara <%= camId %>" 
+                                         onclick="openImageModal('<%= lastImage.url %>', '<%= config.name %>')">
+                                    <div class="stream-indicator motion-indicator">🔍 MOVIMIENTO</div>
+                                    <div class="camera-type-badge">DETECCIÓN</div>
+                                </div>
                                 <div class="image-info">
                                     <div class="image-time">
                                         📅 <%= new Date(lastImage.timestamp).toLocaleString() %>
@@ -53,28 +147,28 @@
                                 </div>
                             </div>
                             
-                            <!-- Últimas 5 imágenes -->
+                            <!-- Últimas detecciones -->
                             <% if (images.length > 1) { %>
                                 <div class="camera-history">
-                                    <h4>Imágenes recientes</h4>
+                                    <h4>Últimas detecciones (<%= images.length %>)</h4>
                                     <div class="history-thumbnails">
                                         <% images.slice(-6, -1).reverse().forEach(img => { %>
-                                            <img src="<%= img.url %>" alt="Histórico" class="thumbnail"
-                                                 onclick="openImageModal('<%= img.url %>', 'Cámara <%= camId %>')">
+                                            <img src="<%= img.url %>" alt="Detección" class="thumbnail"
+                                                 onclick="openImageModal('<%= img.url %>', '<%= config.name %>')">
                                         <% }) %>
                                     </div>
                                 </div>
                             <% } %>
                         <% } else { %>
                             <div class="camera-no-image">
-                                <div class="no-image-icon">📷</div>
-                                <p>Sin imágenes</p>
-                                <small>Esta cámara aún no ha enviado ninguna imagen</small>
+                                <div class="no-image-icon">🔍</div>
+                                <p>Sin detecciones</p>
+                                <small>Esta cámara captura imágenes solo cuando detecta movimiento</small>
                             </div>
                         <% } %>
-                    </div>
-                <% }) %>
-            <% } %>
+                    <% } %>
+                </div>
+            <% }) %>
         </section>
     </main>
 
@@ -87,7 +181,62 @@
         </div>
     </div>
 
+    <!-- Notificación de movimiento detectado -->
+    <div id="motionNotification" class="notification">
+        <span id="notificationText"></span>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
     <script>
+        const socket = io();
+        
+        // Escuchar detecciones de movimiento
+        socket.on('motionDetected', (data) => {
+            // Actualizar la imagen de la cámara correspondiente
+            const cameraElement = document.querySelector(`[data-camera-id="${data.camId}"]`);
+            if (cameraElement) {
+                const img = cameraElement.querySelector('.camera-current img');
+                if (img) {
+                    img.src = data.image.url;
+                }
+                
+                // Actualizar información de tiempo
+                const timeElement = cameraElement.querySelector('.image-time');
+                if (timeElement) {
+                    timeElement.innerHTML = `📅 ${new Date(data.image.timestamp).toLocaleString()}`;
+                }
+            }
+            
+            // Mostrar notificación
+            showMotionNotification(data.cameraName, data.camId);
+        });
+        
+        function showMotionNotification(cameraName, camId) {
+            const notification = document.getElementById('motionNotification');
+            const text = document.getElementById('notificationText');
+            
+            text.innerHTML = `🔍 Movimiento detectado en ${cameraName}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+        
+        function markCameraOnline(camId) {
+            const offlineDiv = document.getElementById(`offline-${camId}`);
+            if (offlineDiv) {
+                offlineDiv.style.display = 'none';
+            }
+        }
+        
+        function markCameraOffline(camId) {
+            const offlineDiv = document.getElementById(`offline-${camId}`);
+            if (offlineDiv) {
+                offlineDiv.style.display = 'block';
+            }
+        }
+
         function openImageModal(imageUrl, title) {
             const modal = document.getElementById('imageModal');
             const modalImg = document.getElementById('modalImage');
@@ -109,7 +258,8 @@
             }
         });
 
-        // Actualizar página cada 30 segundos para nuevas imágenes
+        // Para cámaras de detección, actualizar cada 30 segundos
+        // Las de streaming se actualizan automáticamente
         setTimeout(() => {
             location.reload();
         }, 30000);
