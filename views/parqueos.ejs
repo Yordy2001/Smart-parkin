@@ -14,6 +14,7 @@
             <a href="/" class="nav-link">Dashboard</a>
             <a href="/parqueos" class="nav-link active">Espacios</a>
             <a href="/camaras" class="nav-link">Cámaras</a>
+            <a href="/reservas" class="nav-link">Reservas</a>
         </nav>
     </header>
 
@@ -28,16 +29,36 @@
         </section>
 
         <section class="parqueos-section" id="parkingSlots">
-            <% slots.forEach(slot => { %>
-                <div class="parking-space <%= slot.occupied ? 'occupied' : 'available' %>" 
-                     data-slot="<%= slot.id %>">
+            <% slots.forEach(slot => { 
+                // Determinar estado del espacio
+                let spaceClass = 'available';
+                let spaceIcon = '🟢';
+                let spaceText = 'Libre';
+                
+                if (slot.occupied) {
+                    spaceClass = 'occupied';
+                    spaceIcon = '🚗';
+                    spaceText = 'Ocupado';
+                } else if (slot.reserved) {
+                    spaceClass = 'reserved';
+                    spaceIcon = '📅';
+                    spaceText = `Reservado por ${slot.reservedBy}`;
+                }
+            %>
+                <div class="parking-space <%= spaceClass %>" 
+                     data-slot="<%= slot.id %>"
+                     data-status="<%= spaceClass %>">
                     <div class="space-number">
                         Espacio <%= slot.id %>
                     </div>
                     <div class="space-status">
-                        <%= slot.occupied ? '🚗 Ocupado' : '🟢 Libre' %>
+                        <%= spaceIcon %> <%= spaceText %>
                     </div>
-                    <% if (slot.updatedAt) { %>
+                    <% if (slot.reserved && !slot.occupied) { %>
+                        <div class="space-reservation">
+                            <%= slot.reservedTime %>
+                        </div>
+                    <% } else if (slot.updatedAt) { %>
                         <div class="space-time">
                             Actualizado: <%= new Date(slot.updatedAt).toLocaleTimeString() %>
                         </div>
@@ -56,6 +77,10 @@
                 <div class="legend-item">
                     <div class="legend-color occupied"></div>
                     <span>Espacio ocupado</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color reserved"></div>
+                    <span>Espacio reservado</span>
                 </div>
             </div>
         </section>

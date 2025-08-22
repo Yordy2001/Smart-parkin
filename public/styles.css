@@ -89,6 +89,14 @@ body {
     color: #10b981;
 }
 
+.stat-number.occupied {
+    color: #ef4444;
+}
+
+.stat-number.reserved {
+    color: #ffa726;
+}
+
 /* Mapa de parqueo */
 .parking-map {
     background: white;
@@ -133,6 +141,11 @@ body {
     border-color: #ef4444;
 }
 
+.parking-slot.reserved {
+    background-color: #fff7ed;
+    border-color: #ffa726;
+}
+
 .slot-number {
     font-weight: bold;
     font-size: 0.8rem;
@@ -147,6 +160,17 @@ body {
 .slot-time {
     font-size: 0.6rem;
     color: #666;
+}
+
+.slot-reservation {
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-top: 4px;
+    text-align: center;
+    background: rgba(255, 167, 38, 0.2);
+    padding: 2px 4px;
+    border-radius: 4px;
+    color: #d97706;
 }
 
 /* Página de parqueos */
@@ -200,6 +224,10 @@ body {
     border-left-color: #ef4444;
 }
 
+.parking-space.reserved {
+    border-left-color: #ffa726;
+}
+
 .space-number {
     font-weight: bold;
     font-size: 1.1rem;
@@ -215,6 +243,16 @@ body {
 .space-time {
     font-size: 0.8rem;
     color: #666;
+}
+
+.space-reservation {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #d97706;
+    background: rgba(255, 167, 38, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
 }
 
 /* Leyenda */
@@ -253,6 +291,10 @@ body {
 
 .legend-color.occupied {
     background-color: #ef4444;
+}
+
+.legend-color.reserved {
+    background-color: #ffa726;
 }
 
 /* Cámaras */
@@ -578,4 +620,142 @@ body {
         flex-direction: column;
         gap: 1rem;
     }
+}
+
+/* Estilos para el sistema de reservas */
+.reservations-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.reservation-form {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.slot-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.slot-option {
+    padding: 15px;
+    border: 2px solid #e1e1e1;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: white;
+    font-weight: bold;
+}
+
+.slot-option:hover:not(.reserved):not(.occupied) {
+    border-color: #007bff;
+    background: #f0f8ff;
+}
+
+.slot-option.selected {
+    border-color: #007bff;
+    background: #007bff;
+    color: white;
+}
+
+.slot-option.reserved {
+    background: #ffa726;
+    color: white;
+    cursor: not-allowed;
+    border-color: #ffa726;
+}
+
+.submit-btn {
+    background: #28a745;
+    color: white;
+    padding: 15px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.3s;
+    width: 100%;
+    margin-top: 20px;
+}
+
+.submit-btn:hover:not(:disabled) {
+    background: #218838;
+}
+
+.submit-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.reservations-list {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.reservation-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border: 1px solid #e1e1e1;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: #f9f9f9;
+}
+
+.cancel-btn {
+    background: #dc3545;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.cancel-btn:hover {
+    background: #c82333;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification.success {
+    background: #28a745;
+}
+
+.notification.error {
+    background: #dc3545;
 }

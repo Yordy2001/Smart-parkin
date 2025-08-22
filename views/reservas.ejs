@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/public/styles.css">
+    <title>Reservas de Parqueo</title>
+    <style>
+        .reservations-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .reservation-form {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .form-group input, .form-group select {
+            padding: 12px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        .slot-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .slot-option {
+            padding: 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
+            font-weight: bold;
+        }
+        
+        .slot-option:hover:not(.reserved):not(.occupied) {
+            border-color: #007bff;
+            background: #f0f8ff;
+        }
+        
+        .slot-option.selected {
+            border-color: #007bff;
+            background: #007bff;
+            color: white;
+        }
+        
+        .slot-option.occupied {
+            background: #ff6b6b;
+            color: white;
+            cursor: not-allowed;
+            border-color: #ff6b6b;
+        }
+        
+        .slot-option.reserved {
+            background: #ffa726;
+            color: white;
+            cursor: not-allowed;
+            border-color: #ffa726;
+        }
+        
+        .submit-btn {
+            background: #28a745;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        .submit-btn:hover:not(:disabled) {
+            background: #218838;
+        }
+        
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .reservations-list {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .reservation-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e1e1e1;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+        }
+        
+        .reservation-info {
+            flex: 1;
+        }
+        
+        .reservation-matricula {
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+        
+        .reservation-details {
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .cancel-btn {
+            background: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .cancel-btn:hover {
+            background: #c82333;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            background: #28a745;
+        }
+        
+        .notification.error {
+            background: #dc3545;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #ddd;
+        }
+        
+        .legend-available { background: white; }
+        .legend-occupied { background: #ff6b6b; }
+        .legend-reserved { background: #ffa726; }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <h1>🚗 Parqueo Inteligente</h1>
+        <nav>
+            <a href="/" class="nav-link">Dashboard</a>
+            <a href="/parqueos" class="nav-link">Espacios</a>
+            <a href="/camaras" class="nav-link">Cámaras</a>
+            <a href="/reservas" class="nav-link active">Reservas</a>
+        </nav>
+    </header>
+
+    <main class="reservations-container">
+        <section class="reservation-form">
+            <h2>📅 Reservar Espacio de Parqueo</h2>
+            <p>Reserva tu espacio con anticipación</p>
+            
+            <form id="reservationForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="matricula">🚗 Matrícula del Vehículo</label>
+                        <input type="text" id="matricula" name="matricula" 
+                               placeholder="Ej: ABC-123" required 
+                               style="text-transform: uppercase;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fecha">📅 Fecha de Reserva</label>
+                        <input type="date" id="fecha" name="fecha" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="horaInicio">🕐 Hora de Inicio</label>
+                        <input type="time" id="horaInicio" name="horaInicio" value="08:00">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="horaFin">🕕 Hora de Fin</label>
+                        <input type="time" id="horaFin" name="horaFin" value="18:00">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>🅿️ Seleccionar Espacio</label>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color legend-available"></div>
+                            <span>Disponible</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color legend-occupied"></div>
+                            <span>Ocupado</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color legend-reserved"></div>
+                            <span>Reservado</span>
+                        </div>
+                    </div>
+                    
+                    <div class="slot-selector" id="slotSelector">
+                        <!-- Los slots se cargarán dinámicamente -->
+                    </div>
+                </div>
+                
+                <button type="submit" class="submit-btn" id="submitBtn" disabled>
+                    📅 Crear Reserva
+                </button>
+            </form>
+        </section>
+
+        <section class="reservations-list">
+            <h2>📋 Reservas Activas</h2>
+            
+            <% if (reservations.length === 0) { %>
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">📅</div>
+                    <h3>No hay reservas activas</h3>
+                    <p>Las reservas aparecerán aquí una vez creadas</p>
+                </div>
+            <% } else { %>
+                <div id="reservationsList">
+                    <% Object.entries(reservationsByDate).forEach(([date, dateReservations]) => { %>
+                        <h3>📅 <%= new Date(date).toLocaleDateString('es-ES', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        }) %></h3>
+                        
+                        <% dateReservations.forEach(reservation => { %>
+                            <div class="reservation-item" data-reservation-id="<%= reservation.id %>">
+                                <div class="reservation-info">
+                                    <div class="reservation-matricula">🚗 <%= reservation.matricula %></div>
+                                    <div class="reservation-details">
+                                        🅿️ Espacio <%= reservation.slotId %> | 
+                                        🕐 <%= reservation.horaInicio %> - <%= reservation.horaFin %>
+                                    </div>
+                                </div>
+                                <button class="cancel-btn" onclick="cancelReservation(<%= reservation.id %>)">
+                                    ❌ Cancelar
+                                </button>
+                            </div>
+                        <% }) %>
+                    <% }) %>
+                </div>
+            <% } %>
+        </section>
+    </main>
+
+    <!-- Notificaciones -->
+    <div id="notification" class="notification">
+        <span id="notificationText"></span>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let selectedSlot = null;
+        
+        // Configurar fecha mínima (hoy)
+        document.getElementById('fecha').min = new Date().toISOString().split('T')[0];
+        
+        // Escuchar nuevas reservas
+        socket.on('newReservation', (reservation) => {
+            showNotification('Reserva creada exitosamente', 'success');
+            setTimeout(() => location.reload(), 2000);
+        });
+        
+        socket.on('reservationCancelled', (reservation) => {
+            showNotification('Reserva cancelada', 'success');
+            setTimeout(() => location.reload(), 2000);
+        });
+        
+        // Cargar disponibilidad cuando cambie la fecha
+        document.getElementById('fecha').addEventListener('change', loadSlotAvailability);
+        
+        // Cargar disponibilidad inicial
+        loadSlotAvailability();
+        
+        async function loadSlotAvailability() {
+            const fecha = document.getElementById('fecha').value;
+            if (!fecha) return;
+            
+            try {
+                const response = await fetch(`/api/slots/availability?date=${fecha}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderSlotSelector(data.availability);
+                }
+            } catch (error) {
+                console.error('Error cargando disponibilidad:', error);
+            }
+        }
+        
+        function renderSlotSelector(availability) {
+            const selector = document.getElementById('slotSelector');
+            selector.innerHTML = '';
+            
+            availability.forEach(slot => {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'slot-option';
+                slotDiv.textContent = slot.slotId;
+                slotDiv.dataset.slotId = slot.slotId;
+                
+                if (slot.occupied) {
+                    slotDiv.classList.add('occupied');
+                    slotDiv.title = 'Espacio ocupado actualmente';
+                } else if (!slot.available) {
+                    slotDiv.classList.add('reserved');
+                    slotDiv.title = `Reservado por ${slot.reservation.matricula}`;
+                } else {
+                    slotDiv.addEventListener('click', () => selectSlot(slot.slotId));
+                }
+                
+                selector.appendChild(slotDiv);
+            });
+        }
+        
+        function selectSlot(slotId) {
+            // Remover selección anterior
+            document.querySelectorAll('.slot-option.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // Seleccionar nuevo slot
+            const slotElement = document.querySelector(`[data-slot-id="${slotId}"]`);
+            if (slotElement && !slotElement.classList.contains('reserved') && !slotElement.classList.contains('occupied')) {
+                slotElement.classList.add('selected');
+                selectedSlot = slotId;
+                document.getElementById('submitBtn').disabled = false;
+            }
+        }
+        
+        // Manejar envío del formulario
+        document.getElementById('reservationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!selectedSlot) {
+                showNotification('Por favor selecciona un espacio', 'error');
+                return;
+            }
+            
+            const formData = new FormData(e.target);
+            const reservationData = {
+                matricula: formData.get('matricula'),
+                fecha: formData.get('fecha'),
+                slotId: selectedSlot,
+                horaInicio: formData.get('horaInicio'),
+                horaFin: formData.get('horaFin')
+            };
+            
+            try {
+                const response = await fetch('/api/reservations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(reservationData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('¡Reserva creada exitosamente!', 'success');
+                    document.getElementById('reservationForm').reset();
+                    selectedSlot = null;
+                    document.getElementById('submitBtn').disabled = true;
+                    loadSlotAvailability();
+                } else {
+                    showNotification(result.error || 'Error creando reserva', 'error');
+                }
+            } catch (error) {
+                showNotification('Error de conexión', 'error');
+                console.error('Error:', error);
+            }
+        });
+        
+        async function cancelReservation(reservationId) {
+            if (!confirm('¿Estás seguro de que quieres cancelar esta reserva?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/reservations/${reservationId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Reserva cancelada exitosamente', 'success');
+                    // Remover el elemento de la lista
+                    const reservationElement = document.querySelector(`[data-reservation-id="${reservationId}"]`);
+                    if (reservationElement) {
+                        reservationElement.remove();
+                    }
+                    loadSlotAvailability();
+                } else {
+                    showNotification(result.error || 'Error cancelando reserva', 'error');
+                }
+            } catch (error) {
+                showNotification('Error de conexión', 'error');
+                console.error('Error:', error);
+            }
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            const text = document.getElementById('notificationText');
+            
+            text.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+        
+        // Convertir matrícula a mayúsculas automáticamente
+        document.getElementById('matricula').addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
+        });
+    </script>
+</body>
+</html>
+

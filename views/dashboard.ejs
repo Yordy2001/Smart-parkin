@@ -14,6 +14,7 @@
             <a href="/" class="nav-link active">Dashboard</a>
             <a href="/parqueos" class="nav-link">Espacios</a>
             <a href="/camaras" class="nav-link">Cámaras</a>
+            <a href="/reservas" class="nav-link">Reservas</a>
         </nav>
     </header>
 
@@ -33,6 +34,16 @@
                 <div class="stat-number" id="vehiclesInside"><%= vehiclesInside %></div>
             </div>
             <div class="stat-card">
+                <h3>Espacios Ocupados</h3>
+                <div class="stat-number occupied" id="occupiedSlots"><%= occupiedSlots %></div>
+            </div>
+            <div class="stat-card">
+                <h3>Espacios Reservados</h3>
+                <div class="stat-number reserved" id="reservedSlots">
+                    <%= todayReservations ? todayReservations.length : 0 %>
+                </div>
+            </div>
+            <div class="stat-card">
                 <h3>Espacios Libres</h3>
                 <div class="stat-number available" id="availableSlots"><%= availableSlots %></div>
             </div>
@@ -41,15 +52,58 @@
         <!-- Mapa de espacios -->
         <section class="parking-map">
             <h2>Mapa del Parqueo</h2>
+            
+            <!-- Leyenda -->
+            <div class="legend">
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <div class="legend-color available"></div>
+                        <span>Disponible</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color occupied"></div>
+                        <span>Ocupado</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color reserved"></div>
+                        <span>Reservado</span>
+                    </div>
+                </div>
+            </div>
             <div class="parking-grid">
-                <% parkingState.slots.forEach(slot => { %>
-                    <div class="parking-slot <%= slot.occupied ? 'occupied' : 'free' %>" 
-                         data-slot="<%= slot.id %>">
+                <% parkingState.slots.forEach(slot => { 
+                    const reservation = reservationsBySlot[slot.id];
+                    let slotClass = 'free';
+                    let slotIcon = '🟢';
+                    let slotInfo = '';
+                    
+                    if (slot.occupied) {
+                        slotClass = 'occupied';
+                        slotIcon = '🚗';
+                    } else if (reservation) {
+                        slotClass = 'reserved';
+                        slotIcon = '📅';
+                        slotInfo = reservation.matricula;
+                    }
+                %>
+                    <div class="parking-slot <%= slotClass %>" 
+                         data-slot="<%= slot.id %>"
+                         <% if (reservation) { %>
+                         data-reserved="true"
+                         title="Reservado por <%= reservation.matricula %> (<%= reservation.horaInicio %> - <%= reservation.horaFin %>)"
+                         <% } %>>
                         <div class="slot-number"><%= slot.id %></div>
                         <div class="slot-status">
-                            <%= slot.occupied ? '🚗' : '🟢' %>
+                            <%= slotIcon %>
                         </div>
-                        <% if (slot.updatedAt) { %>
+                        <% if (reservation && !slot.occupied) { %>
+                            <div class="slot-reservation">
+                                <%= reservation.matricula %>
+                            </div>
+                            <div class="slot-time">
+                                <%= reservation.horaInicio %> - <%= reservation.horaFin %>
+                            </div>
+                        <% } else if (slot.updatedAt) { %>
                             <div class="slot-time">
                                 <%= new Date(slot.updatedAt).toLocaleTimeString() %>
                             </div>
@@ -99,6 +153,8 @@
                             <% } else if (event.type === 'EXIT') { %>🚗⬅️
                             <% } else if (event.type === 'SLOT_UPDATE') { %>🅿️
                             <% } else if (event.type === 'CAMERA_IMAGE') { %>📸
+                            <% } else if (event.type === 'RESERVATION_CREATED') { %>📅
+                            <% } else if (event.type === 'RESERVATION_CANCELLED') { %>❌
                             <% } %>
                         </div>
                         <div class="event-details">
@@ -111,6 +167,10 @@
                                     Espacio <%= event.data.slotId %> <%= event.data.occupied ? 'ocupado' : 'liberado' %>
                                 <% } else if (event.type === 'CAMERA_IMAGE') { %>
                                     Nueva imagen de cámara <%= event.data.camId %>
+                                <% } else if (event.type === 'RESERVATION_CREATED') { %>
+                                    Reserva creada: <%= event.data.matricula %> - Espacio <%= event.data.slotId %>
+                                <% } else if (event.type === 'RESERVATION_CANCELLED') { %>
+                                    Reserva cancelada: <%= event.data.matricula %> - Espacio <%= event.data.slotId %>
                                 <% } %>
                             </div>
                             <div class="event-time">
@@ -138,13 +198,26 @@
             
             const slotElement = document.querySelector(`[data-slot="${data.slotId}"]`);
             if (slotElement) {
-                slotElement.className = `parking-slot ${data.occupied ? 'occupied' : 'free'}`;
+                // Verificar si hay reserva para este slot
+                const isReserved = slotElement.hasAttribute('data-reserved');
+                let slotClass = 'free';
+                let slotIcon = '🟢';
+                
+                if (data.occupied) {
+                    slotClass = 'occupied';
+                    slotIcon = '🚗';
+                } else if (isReserved) {
+                    slotClass = 'reserved';
+                    slotIcon = '📅';
+                }
+                
+                slotElement.className = `parking-slot ${slotClass}`;
                 
                 const statusElement = slotElement.querySelector('.slot-status');
-                statusElement.textContent = data.occupied ? '🚗' : '🟢';
+                statusElement.textContent = slotIcon;
                 
                 const timeElement = slotElement.querySelector('.slot-time');
-                if (timeElement) {
+                if (timeElement && !isReserved) {
                     timeElement.textContent = new Date(data.timestamp).toLocaleTimeString();
                 }
                 
@@ -167,6 +240,20 @@
             if (availableCount) {
                 availableCount.textContent = data.availableSlots;
             }
+        });
+        
+        // Escuchar nuevas reservas
+        socket.on('newReservation', (reservation) => {
+            console.log('📅 Nueva reserva creada:', reservation);
+            // Recargar la página para mostrar la nueva reserva
+            setTimeout(() => location.reload(), 1000);
+        });
+        
+        // Escuchar reservas canceladas
+        socket.on('reservationCancelled', (reservation) => {
+            console.log('❌ Reserva cancelada:', reservation);
+            // Recargar la página para actualizar el estado
+            setTimeout(() => location.reload(), 1000);
         });
         
         function updateDashboard(data) {

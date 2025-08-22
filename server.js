@@ -44,8 +44,15 @@ const parkingState = {
     slots: Array.from({ length: SLOTS_COUNT }, (_, i) => ({
         id: i + 1,
         occupied: false,
-        updatedAt: null
+        updatedAt: null,
+        reserved: false,
+        reservedBy: null,
+        reservedDate: null,
+        reservedTime: null
     })),
+    
+    // Sistema de reservas
+    reservations: [],
     
     // Imágenes de las 5 cámaras
     cameras: {},
@@ -110,6 +117,25 @@ function addEvent(type, data) {
 
 // RUTAS WEB
 
+// Función para obtener reservas activas para hoy
+function getTodayReservations() {
+    const today = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    console.log(`🔍 DEBUG - Fecha de hoy: ${today}`);
+    console.log(`🔍 DEBUG - Reservas totales: ${parkingState.reservations.length}`);
+    
+    parkingState.reservations.forEach(r => {
+        console.log(`🔍 DEBUG - Reserva: ${r.matricula}, Fecha: ${r.fecha}, Status: ${r.status}`);
+    });
+    
+    const todayReservations = parkingState.reservations.filter(r => 
+        r.fecha === today && r.status === 'active'
+    );
+    
+    console.log(`🔍 DEBUG - Reservas de hoy encontradas: ${todayReservations.length}`);
+    
+    return todayReservations;
+}
+
 // Página principal - Dashboard
 app.get('/', (req, res) => {
     const occupiedSlots = parkingState.slots.filter(s => s.occupied).length;
@@ -118,13 +144,24 @@ app.get('/', (req, res) => {
     
     const cameraIds = Object.keys(parkingState.cameras).sort((a, b) => parseInt(a) - parseInt(b));
     
+    // Obtener reservas de hoy
+    const todayReservations = getTodayReservations();
+    
+    // Crear un mapa de reservas por slot ID
+    const reservationsBySlot = {};
+    todayReservations.forEach(reservation => {
+        reservationsBySlot[reservation.slotId] = reservation;
+    });
+    
     res.render('dashboard', {
         parkingState,
         occupiedSlots,
         availableSlots,
         vehiclesInside,
         cameraIds,
-        totalSlots: SLOTS_COUNT
+        totalSlots: SLOTS_COUNT,
+        todayReservations,
+        reservationsBySlot
     });
 });
 
@@ -145,12 +182,80 @@ app.get('/camaras', (req, res) => {
     });
 });
 
+// Página de reservas
+app.get('/reservas', (req, res) => {
+    // Obtener reservas activas (hoy y futuras)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const activeReservations = parkingState.reservations.filter(reservation => {
+        const reservationDate = new Date(reservation.fecha);
+        return reservationDate >= today && reservation.status === 'active';
+    });
+    
+    // Agrupar reservas por fecha
+    const reservationsByDate = {};
+    activeReservations.forEach(reservation => {
+        const dateKey = reservation.fecha;
+        if (!reservationsByDate[dateKey]) {
+            reservationsByDate[dateKey] = [];
+        }
+        reservationsByDate[dateKey].push(reservation);
+    });
+    
+    res.render('reservas', {
+        slots: parkingState.slots,
+        reservations: activeReservations,
+        reservationsByDate,
+        totalSlots: SLOTS_COUNT
+    });
+});
+
 // RUTAS API
 
 // Obtener estado completo del parqueo
 app.get('/api/status', (req, res) => {
-    const occupiedSlots = parkingState.slots.filter(s => s.occupied).length;
-    const availableSlots = SLOTS_COUNT - occupiedSlots;
+    // Obtener reservas de hoy para calcular estados correctamente
+    const todayReservations = getTodayReservations();
+    const reservationsBySlot = {};
+    todayReservations.forEach(reservation => {
+        reservationsBySlot[reservation.slotId] = reservation;
+    });
+    
+    // Calcular estados considerando reservas
+    let occupiedSlots = 0;
+    let reservedSlots = 0;
+    let availableSlots = 0;
+    
+    const slotsWithStatus = parkingState.slots.map(slot => {
+        const reservation = reservationsBySlot[slot.id];
+        let status = 'available';
+        let statusIcon = '🟢';
+        let statusText = 'Disponible';
+        
+        if (slot.occupied) {
+            status = 'occupied';
+            statusIcon = '🚗';
+            statusText = 'Ocupado';
+            occupiedSlots++;
+        } else if (reservation) {
+            status = 'reserved';
+            statusIcon = '📅';
+            statusText = `Reservado por ${reservation.matricula}`;
+            reservedSlots++;
+        } else {
+            availableSlots++;
+        }
+        
+        return {
+            ...slot,
+            status,
+            statusIcon,
+            statusText,
+            reservation: reservation || null
+        };
+    });
+    
     const vehiclesInside = parkingState.entryCount - parkingState.exitCount;
     
     res.json({
@@ -158,9 +263,11 @@ app.get('/api/status', (req, res) => {
         exitCount: parkingState.exitCount,
         vehiclesInside,
         occupiedSlots,
+        reservedSlots,
         availableSlots,
         totalSlots: SLOTS_COUNT,
-        slots: parkingState.slots,
+        slots: slotsWithStatus,
+        todayReservations,
         lastEvents: parkingState.events.slice(0, 10)
     });
 });
@@ -196,8 +303,7 @@ app.post('/api/gate', (req, res) => {
 // Endpoint para actualizar estado de espacios de parqueo
 app.post('/api/slot/:id', (req, res) => {
     const slotId = parseInt(req.params.id);
-    let { occupied } = req.body;
-    occupied = !occupied
+    const { occupied } = req.body;
     const clientIP = req.ip || req.connection.remoteAddress;
     const timestamp = new Date().toISOString();
     
@@ -328,6 +434,184 @@ app.get('/api/camera/:camId/latest', (req, res) => {
         success: true,
         camera: camId,
         image: latestImage
+    });
+});
+
+// API para crear reserva
+app.post('/api/reservations', (req, res) => {
+    const { matricula, fecha, slotId, horaInicio, horaFin } = req.body;
+    
+    // Validaciones
+    if (!matricula || !fecha || !slotId) {
+        return res.status(400).json({ 
+            error: 'Matrícula, fecha y slot son obligatorios' 
+        });
+    }
+    
+    const slotIdNum = parseInt(slotId);
+    if (slotIdNum < 1 || slotIdNum > SLOTS_COUNT) {
+        return res.status(400).json({ 
+            error: `El slot debe estar entre 1 y ${SLOTS_COUNT}` 
+        });
+    }
+    
+    // Verificar que la fecha no sea en el pasado
+    const reservationDate = new Date(fecha);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (reservationDate < today) {
+        return res.status(400).json({ 
+            error: 'No se puede reservar en fechas pasadas' 
+        });
+    }
+    
+    // Verificar si ya existe una reserva para ese slot en esa fecha
+    const existingReservation = parkingState.reservations.find(r => 
+        r.slotId === slotIdNum && r.fecha === fecha && r.status === 'active'
+    );
+    
+    if (existingReservation) {
+        return res.status(400).json({ 
+            error: `El espacio ${slotIdNum} ya está reservado para el ${fecha} por ${existingReservation.matricula}` 
+        });
+    }
+    
+    // Crear nueva reserva
+    const newReservation = {
+        id: Date.now(),
+        matricula: matricula.toUpperCase(),
+        fecha,
+        slotId: slotIdNum,
+        horaInicio: horaInicio || '08:00',
+        horaFin: horaFin || '18:00',
+        createdAt: new Date().toISOString(),
+        status: 'active'
+    };
+    
+    parkingState.reservations.push(newReservation);
+    
+    // Actualizar el slot como reservado
+    const slot = parkingState.slots.find(s => s.id === slotIdNum);
+    if (slot) {
+        slot.reserved = true;
+        slot.reservedBy = newReservation.matricula;
+        slot.reservedDate = fecha;
+        slot.reservedTime = `${horaInicio} - ${horaFin}`;
+    }
+    
+    // Agregar evento
+    addEvent('RESERVATION_CREATED', { 
+        matricula: newReservation.matricula, 
+        slotId: slotIdNum, 
+        fecha 
+    });
+    
+    console.log(`📅 Nueva reserva: ${matricula} - Espacio ${slotIdNum} - ${fecha}`);
+    
+    // Notificar a clientes conectados
+    io.emit('newReservation', newReservation);
+    
+    res.json({
+        success: true,
+        reservation: newReservation
+    });
+});
+
+// API para obtener reservas
+app.get('/api/reservations', (req, res) => {
+    const { date, slotId } = req.query;
+    
+    let filteredReservations = parkingState.reservations.filter(r => r.status === 'active');
+    
+    if (date) {
+        filteredReservations = filteredReservations.filter(r => r.fecha === date);
+    }
+    
+    if (slotId) {
+        filteredReservations = filteredReservations.filter(r => r.slotId === parseInt(slotId));
+    }
+    
+    res.json({
+        success: true,
+        reservations: filteredReservations
+    });
+});
+
+// API para cancelar reserva
+app.delete('/api/reservations/:id', (req, res) => {
+    const reservationId = parseInt(req.params.id);
+    const reservationIndex = parkingState.reservations.findIndex(r => r.id === reservationId);
+    
+    if (reservationIndex === -1) {
+        return res.status(404).json({ 
+            error: 'Reserva no encontrada' 
+        });
+    }
+    
+    const reservation = parkingState.reservations[reservationIndex];
+    reservation.status = 'cancelled';
+    reservation.cancelledAt = new Date().toISOString();
+    
+    // Liberar el slot
+    const slot = parkingState.slots.find(s => s.id === reservation.slotId);
+    if (slot) {
+        slot.reserved = false;
+        slot.reservedBy = null;
+        slot.reservedDate = null;
+        slot.reservedTime = null;
+    }
+    
+    addEvent('RESERVATION_CANCELLED', { 
+        matricula: reservation.matricula, 
+        slotId: reservation.slotId, 
+        fecha: reservation.fecha 
+    });
+    
+    console.log(`❌ Reserva cancelada: ${reservation.matricula} - Espacio ${reservation.slotId}`);
+    
+    // Notificar a clientes conectados
+    io.emit('reservationCancelled', reservation);
+    
+    res.json({
+        success: true,
+        message: 'Reserva cancelada exitosamente'
+    });
+});
+
+// API para verificar disponibilidad de slots
+app.get('/api/slots/availability', (req, res) => {
+    const { date } = req.query;
+    
+    if (!date) {
+        return res.status(400).json({ 
+            error: 'Fecha es obligatoria' 
+        });
+    }
+    
+    // Obtener reservas para esa fecha
+    const reservationsForDate = parkingState.reservations.filter(r => 
+        r.fecha === date && r.status === 'active'
+    );
+    
+    // Crear array de disponibilidad
+    const availability = Array.from({ length: SLOTS_COUNT }, (_, i) => {
+        const slotId = i + 1;
+        const reservation = reservationsForDate.find(r => r.slotId === slotId);
+        const slot = parkingState.slots.find(s => s.id === slotId);
+        
+        return {
+            slotId,
+            available: !reservation && !slot.occupied,
+            reservation: reservation || null,
+            occupied: slot.occupied
+        };
+    });
+    
+    res.json({
+        success: true,
+        date,
+        availability
     });
 });
 
